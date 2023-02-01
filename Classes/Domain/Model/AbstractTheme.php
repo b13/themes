@@ -28,6 +28,7 @@ namespace KayStrobach\Themes\Domain\Model;
  ***************************************************************/
 
 use KayStrobach\Themes\Utilities\ApplicationContext;
+use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\Site\Entity\Site;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
@@ -429,13 +430,14 @@ class AbstractTheme extends AbstractEntity
      */
     protected function getBasicConstants($pid)
     {
+        $applicationContext = Environment::getContext();
         $buffer = '';
         $buffer .= LF . 'themes.relativePath = ' . $this->getRelativePath();
         $buffer .= LF . 'themes.name = ' . $this->getExtensionName();
         $buffer .= LF . 'themes.templatePageId = ' . $pid;
-        $buffer .= LF . 'themes.mode.context = ' . ApplicationContext::getApplicationContext();
-        $buffer .= LF . 'themes.mode.isDevelopment = ' . (int)ApplicationContext::isDevelopmentModeActive();
-        $buffer .= LF . 'themes.mode.isProduction = ' . (int)!ApplicationContext::isDevelopmentModeActive();
+        $buffer .= LF . 'themes.mode.context = ' . (string)$applicationContext;
+        $buffer .= LF . 'themes.mode.isDevelopment = ' . (int)$applicationContext->isDevelopment();
+        $buffer .= LF . 'themes.mode.isProduction = ' . (int)!$applicationContext->isDevelopment();
         return $buffer;
     }
 }

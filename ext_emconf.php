@@ -49,8 +49,7 @@ $EM_CONF['themes'] = [
     'CGLcompliance_note' => '',
     'constraints' => [
         'depends' => [
-            'typo3' => '9.5.7-10.4.99',
-            'gridelements' => '9.2.1-10.0.99',
+            'typo3' => '11.5.0-11.5.99',
         ],
         'conflicts' => [
             'belayout_tsprovider' => '0.0.0-1.99.99',

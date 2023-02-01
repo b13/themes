@@ -1,97 +1,40 @@
 <html data-namespace-typo3-fluid="true"
 	  xmlns:core="http://typo3.org/ns/TYPO3/CMS/Core/ViewHelpers"
+			xmlns:f="http://typo3.org/ns/TYPO3/CMS/Fluid/ViewHelpers"
 	  xmlns:themes="http://typo3.org/ns/KayStrobach/Themes/ViewHelpers">
+
+
+<div id="categoriesFilter">
+	<form class="row g-3" onsubmit="return false;">
+		<div class="col-md-4">
+			<label for="categoriesFilterSearchField" class="form-label"><f:translate key="categoriesFilterSearch" /></label>
+			<input type="text" class="form-control" id="categoriesFilterSearchField" name="search" >
+		</div>
+		<div class="col-md-4">
+			<label for="categoriesFilterSearchScope" class="form-label"><f:translate key="categoriesFilterIn" /></label>
+			<select id="categoriesFilterSearchScope" name="scope" class="form-select">
+
+				<f:for each="{themes:iterator.sort(subject: categories, key: 'title')}" as="category">
+					<f:if condition="{category.items}">
+						<option value="{category.key}" {f:if(condition:'{category.key} == {categoriesFilterSettings.searchScope}', then:'selected="selected"')}>
+						<f:translate key="{category.title}" default="{category.title}" />
+						</option>
+					</f:if>
+				</f:for>
+			</select>
+		</div>
+		<div class="col-md-4">
+			<input id="categoriesFilterShowBasic" name="showBasic" value="1" type="hidden" checked="checked"/>
+			<input id="categoriesFilterShowAdvanced" name="showAdvanced" value="1" type="hidden" checked="checked"/>
+			<input id="categoriesFilterShowExpert" name="showExpert" value="1" type="hidden" checked="checked"/>
+		</div>
+	</form>
+</div>
+
 	<div class="row">
-		<div class="col-xs-12 col-md-6">
 
+		<div class="col-xs-12">
 
-			<div class="panel panel-default">
-				<div class="panel-heading">{selectedTheme.title} (Version: {selectedTheme.version})</div>
-				<div class="panel-body">
-
-					<f:if condition="{selectedTheme.metaInformation.description}">
-						<p>{selectedTheme.metaInformation.description}</p>
-					</f:if>
-
-					<f:if condition="{selectedTheme.metaInformation.constants.availableCategories -> f:count()}">
-						<b>Tags</b><br>
-						<p>
-							<f:for each="{selectedTheme.metaInformation.keywords}" as="tag">
-									<span class="theme-tag">
-										{tag}
-									</span>
-							</f:for>
-						</p>
-					</f:if>
-
-				</div>
-			</div>
-
-		</div>
-		<div class="col-xs-12 col-md-6">
-			<f:render partial="Meta/Screenshots" arguments="{screenshots:selectedTheme.allPreviewImages}"/>
-		</div>
-		<div class="col-xs-12" style="margin-top: 50px">
-
-			<div class="panel panel-default">
-				<div class="panel-heading">Theme constants filter</div>
-				<div class="panel-body">
-
-					<div id="categoriesFilter">
-						<input type="hidden" name="categoriesFilterSettingsSaveUrl" value="{f:uri.action(action: 'saveCategoriesFilterSettings')}" id="categoriesFilterSettingsSaveUrl">
-						<div class="row">
-							<div class="col-xs-12 col-md-6">
-								<form class="form-inline"onsubmit="return false;">
-									<label for="categoriesFilterSearchField"><f:translate key="categoriesFilterSearch" /></label>
-									<div class="form-group">
-										<input id="categoriesFilterSearchField" name="search" type="text" value="" class="form-control input-sm">
-										<label for="categoriesFilterSearchScope"><f:translate key="categoriesFilterIn" /></label>
-									</div>
-									<div class="form-group">
-										<select id="categoriesFilterSearchScope" name="scope" class="form-control input-sm">
-											<!-- Don't display all categories once, because of duplicated constants -->
-											<!--option value="all"><f:translate key="categoriesFilterAll" /></option-->
-											<f:for each="{themes:iterator.sort(subject: categories, key: 'title')}" as="category">
-												<f:if condition="{category.items}">
-													<option value="{category.key}" {f:if(condition:'{category.key} == {categoriesFilterSettings.searchScope}', then:'selected="selected"')}>
-														<f:translate key="{category.title}" default="{category.title}" />
-													</option>
-												</f:if>
-											</f:for>
-										</select>
-									</div>
-								</form>
-							</div>
-							<div class="col-xs-12 col-md-6">
-								<form class="form-inline"onsubmit="return false;">
-									<span style="font-weight:bold">
-										<f:translate key="categoriesFilterDisplay" />:
-									</span>
-									<div class="checkbox">
-										<label for="categoriesFilterShowBasic" style="font-weight:normal">
-											<input id="categoriesFilterShowBasic" name="showBasic" value="1" type="checkbox" {f:if(condition:'{categoriesFilterSettings.showBasic} == 1', then:'checked="checked"')}>
-											<f:translate key="categoriesFilterBasic" />
-										</label>
-									</div>
-									<div class="checkbox">
-										<label for="categoriesFilterShowAdvanced" style="font-weight:normal">
-											<input id="categoriesFilterShowAdvanced" name="showAdvanced" value="1" type="checkbox" {f:if(condition:'{categoriesFilterSettings.showAdvanced} == 1', then:'checked="checked"')}>
-											<f:translate key="categoriesFilterAdvanced" />
-										</label>
-									</div>
-									<div class="checkbox">
-										<label for="categoriesFilterShowExpert" style="font-weight:normal">
-											<input id="categoriesFilterShowExpert" name="showExpert" value="1" type="checkbox" {f:if(condition:'{categoriesFilterSettings.showExpert} == 1', then:'checked="checked"')}>
-											<f:translate key="categoriesFilterExpert" />
-										</label>
-									</div>
-								</form>
-							</div>
-						</div>
-					</div>
-
-				</div>
-			</div>
 
 			<f:form action="update" enctype="multipart/form-data" id="saveableForm">
 

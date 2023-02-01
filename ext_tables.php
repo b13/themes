@@ -1,6 +1,6 @@
 <?php
 
-if (!defined('TYPO3_MODE')) {
+if (!defined('TYPO3')) {
     die('Access denied.');
 }
 
@@ -8,7 +8,7 @@ if (!defined('TYPO3_MODE')) {
  * Static templates
  */
 
-if (TYPO3_MODE === 'BE') {
+
     \TYPO3\CMS\Extbase\Utility\ExtensionUtility::registerModule(
         'KayStrobach.themes',
         'web', // Main area
@@ -16,7 +16,7 @@ if (TYPO3_MODE === 'BE') {
         '', // Position of the module
         [
             // Allowed controller action combinations
-            'Editor' => 'index,update,showTheme,setTheme,showThemeDetails,saveCategoriesFilterSettings',
+            \KayStrobach\Themes\Controller\EditorController::class => 'index,update,saveCategoriesFilterSettings', // dropped: showTheme,setTheme,showThemeDetails
         ],
         [
             // Additional configuration
@@ -29,7 +29,7 @@ if (TYPO3_MODE === 'BE') {
     // Add some backend stylesheets and javascript
     $GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_pagerenderer.php']['render-preProcess'][]
         = \KayStrobach\Themes\Hooks\PageRenderer::class . '->addJSCSS';
-}
+
 
 /*
  * add themes overlay

@@ -27,6 +27,7 @@ namespace KayStrobach\Themes\Utilities;
  * This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
+use KayStrobach\Themes\TypoScript\ExtendedTemplateService;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -41,7 +42,7 @@ use TYPO3\CMS\Core\Utility\RootlineUtility;
 class TsParserUtility implements SingletonInterface
 {
     /**
-     * @var \TYPO3\CMS\Core\TypoScript\ExtendedTemplateService
+     * @var ExtendedTemplateService
      */
     protected $tsParser;
     protected $tsParserTplRow;
@@ -125,19 +126,19 @@ class TsParserUtility implements SingletonInterface
     {
         $this->initializeTsParser($pid);
 
-        foreach ($this->tsParser->categories as $categoryName => $category) {
+        foreach ($this->tsParser->getCategories() as $categoryName => $category) {
             if ((count($categoriesToShow) === 0) || (in_array($categoryName, $categoriesToShow))) {
                 foreach (array_keys($category) as $constantName) {
                     if (in_array($constantName, $deniedFields)) {
-                        unset($this->tsParser->categories[$categoryName][$constantName]);
+                        $this->tsParser->unsetCategory($categoryName, $constantName);
                     }
                 }
             } else {
-                unset($this->tsParser->categories[$categoryName]);
+                $this->tsParser->unsetCategories($categoryName);
             }
         }
 
-        return $this->tsParser->categories;
+        return $this->tsParser->getCategories();
     }
 
     /**
@@ -155,7 +156,7 @@ class TsParserUtility implements SingletonInterface
     /**
      * @param $pid
      *
-     * @return \TYPO3\CMS\Core\TypoScript\ExtendedTemplateService
+     * @return ExtendedTemplateService
      */
     protected function getTsParser($pid)
     {
@@ -235,7 +236,7 @@ class TsParserUtility implements SingletonInterface
     {
         if (!$this->tsParserInitialized) {
             $this->tsParserInitialized = true;
-            $this->tsParser = GeneralUtility::makeInstance('TYPO3\\CMS\Core\\TypoScript\\ExtendedTemplateService');
+            $this->tsParser = GeneralUtility::makeInstance(ExtendedTemplateService::class);
             // Do not log time-performance information
             $this->tsParser->tt_track = 0;
 

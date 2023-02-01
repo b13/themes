@@ -141,7 +141,6 @@ class EditorController extends ActionController
             // Try to load the selected theme
             $this->selectedTheme = $this->themeRepository->findByPageId($this->id);
             // Create menu and buttons
-            $this->createMenu();
             $this->createButtons();
         }
     }
@@ -168,10 +167,6 @@ class EditorController extends ActionController
                         ->setIcon($this->iconFactory->getIcon('actions-document-save', Icon::SIZE_SMALL))
                         ->setTitle('Save');
                 }
-                $buttons[] = $buttonBar->makeLinkButton()
-                    ->setHref($uriBuilder->reset()->setRequest($this->request)->uriFor('showTheme', [], 'Editor'))
-                    ->setTitle('Choose theme')
-                    ->setIcon($this->iconFactory->getIcon('actions-system-options-view', Icon::SIZE_SMALL));
                 break;
             }
             case 'showTheme':
@@ -292,14 +287,11 @@ class EditorController extends ActionController
             $nearestPageWithTheme = $this->id;
             $this->view->assign('selectedTheme', $this->selectedTheme);
             $this->view->assign('categories', $this->renderFields($this->tsParser, $this->id, $this->allowedCategories, $this->deniedFields));
-            $categoriesFilterSettings = $this->getBackendUser()->getModuleData('mod-web_ThemesMod1/Categories/Filter/Settings', 'ses');
-            if ($categoriesFilterSettings === null) {
-                $categoriesFilterSettings = [];
-                $categoriesFilterSettings['searchScope'] = 'all';
-                $categoriesFilterSettings['showBasic'] = '1';
-                $categoriesFilterSettings['showAdvanced'] = '0';
-                $categoriesFilterSettings['showExpert'] = '0';
-            }
+            $categoriesFilterSettings = [];
+            $categoriesFilterSettings['searchScope'] = 'all';
+            $categoriesFilterSettings['showBasic'] = '1';
+            $categoriesFilterSettings['showAdvanced'] = '1';
+            $categoriesFilterSettings['showExpert'] = '1';
             $this->view->assign('categoriesFilterSettings', $categoriesFilterSettings);
         } elseif ($this->id !== 0) {
             $nearestPageWithTheme = FindParentPageWithThemeUtility::find($this->id);
