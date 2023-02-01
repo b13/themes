@@ -54,14 +54,6 @@ class CheckPageUtility
                 $queryBuilder->expr()->eq(
                     'pid',
                     $queryBuilder->createNamedParameter((int)$pid, \PDO::PARAM_INT)
-                ),
-                $queryBuilder->expr()->eq(
-                    'root',
-                    $queryBuilder->createNamedParameter(1, \PDO::PARAM_INT)
-                ),
-                $queryBuilder->expr()->neq(
-                    'tx_themes_skin',
-                    $queryBuilder->createNamedParameter('', \PDO::PARAM_STR)
                 )
             );
         /** @var  \Doctrine\DBAL\Driver\Statement $statement */
@@ -93,23 +85,11 @@ class CheckPageUtility
                 )
             );
         $siteFinder = GeneralUtility::makeInstance(SiteFinder::class);
-        $themeableSysTemplateRecordsRequireRootFlag = true;
         try {
             $site = $siteFinder->getSiteByPageId($pid);
             $configuration = $site->getConfiguration();
-            if (isset($configuration['themeableSysTemplateRecordsRequireRootFlag'])) {
-                $themeableSysTemplateRecordsRequireRootFlag = (bool)$configuration['themeableSysTemplateRecordsRequireRootFlag'];
-            }
         } catch (SiteNotFoundException $e) {
             // simple keep variable value
-        }
-        if ($themeableSysTemplateRecordsRequireRootFlag === true) {
-            $queryBuilder->andWhere(
-                $queryBuilder->expr()->eq(
-                    'root',
-                    $queryBuilder->createNamedParameter(1, \PDO::PARAM_INT)
-                )
-            );
         }
         /** @var  \Doctrine\DBAL\Driver\Statement $statement */
         $statement = $queryBuilder->execute();
@@ -136,10 +116,6 @@ class CheckPageUtility
                 $queryBuilder->expr()->eq(
                     'pid',
                     $queryBuilder->createNamedParameter((int)$pid, \PDO::PARAM_INT)
-                ),
-                $queryBuilder->expr()->eq(
-                    'root',
-                    $queryBuilder->createNamedParameter(1, \PDO::PARAM_INT)
                 )
             );
         /** @var  \Doctrine\DBAL\Driver\Statement $statement */

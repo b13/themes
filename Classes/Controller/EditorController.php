@@ -44,6 +44,7 @@ use TYPO3\CMS\Core\Utility\PathUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\View\ViewInterface;
 use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
+use TYPO3\CMS\Extbase\Utility\DebuggerUtility;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -156,63 +157,17 @@ class EditorController extends ActionController
         $uriBuilder = $this->objectManager->get(UriBuilder::class);
         $uriBuilder->setRequest($this->request);
         $buttons = [];
-        switch ($this->request->getControllerActionName()) {
-            case 'index': {
-                // Only show save button, in case of a theme is selected
-                if ($this->selectedTheme !== null) {
-                    $buttons[] = $buttonBar->makeInputButton()
-                        ->setName('save')
-                        ->setValue('1')
-                        ->setForm('saveableForm')
-                        ->setIcon($this->iconFactory->getIcon('actions-document-save', Icon::SIZE_SMALL))
-                        ->setTitle('Save');
-                }
-                break;
-            }
-            case 'showTheme':
-            case 'showThemeDetails': {
-                $buttons[] = $buttonBar->makeLinkButton()
-                    ->setHref($uriBuilder->reset()->setRequest($this->request)->uriFor('index', [], 'Editor'))
-                    ->setTitle('Go back')
-                    ->setIcon($this->iconFactory->getIcon('actions-view-go-back', Icon::SIZE_SMALL));
-                break;
-            }
+        if ($this->selectedTheme !== null) {
+            $buttons[] = $buttonBar->makeInputButton()
+                ->setName('save')
+                ->setValue('1')
+                ->setForm('saveableForm')
+                ->setIcon($this->iconFactory->getIcon('actions-document-save', Icon::SIZE_SMALL))
+                ->setTitle('Save');
         }
         foreach ($buttons as $button) {
             $buttonBar->addButton($button, ButtonBar::BUTTON_POSITION_LEFT);
         }
-    }
-
-    /**
-     * Create action menu
-     *
-     *@return void
-     */
-    protected function createMenu(): void
-    {
-        /** @var UriBuilder $uriBuilder */
-        $uriBuilder = $this->objectManager->get(UriBuilder::class);
-        $uriBuilder->setRequest($this->request);
-        $menu = $this->view->getModuleTemplate()->getDocHeaderComponent()->getMenuRegistry()->makeMenu();
-        $menu->setIdentifier('themes');
-        $actions = [
-            [
-                'action' => 'index',
-                'label' => LocalizationUtility::translate('setConstants', $this->extensionName)
-            ],
-            [
-                'action' => 'showTheme',
-                'label' => LocalizationUtility::translate('setTheme', $this->extensionName)
-            ],
-        ];
-        foreach ($actions as $action) {
-            $item = $menu->makeMenuItem()
-                ->setTitle($action['label'])
-                ->setHref($uriBuilder->reset()->uriFor($action['action'], [], 'Editor'))
-                ->setActive($this->request->getControllerActionName() === $action['action']);
-            $menu->addMenuItem($item);
-        }
-        $this->view->getModuleTemplate()->getDocHeaderComponent()->getMenuRegistry()->addMenu($menu);
     }
 
     /**
@@ -287,8 +242,11 @@ class EditorController extends ActionController
             $nearestPageWithTheme = $this->id;
             $this->view->assign('selectedTheme', $this->selectedTheme);
             $this->view->assign('categories', $this->renderFields($this->tsParser, $this->id, $this->allowedCategories, $this->deniedFields));
-            $categoriesFilterSettings = [];
-            $categoriesFilterSettings['searchScope'] = 'all';
+            $categoriesFilterSettings = $this->getBackendUser()->getModuleData('mod-web_ThemesMod1/Categories/Filter/Settings', 'ses');
+            if ($categoriesFilterSettings === null) {
+                $categoriesFilterSettings = [];
+                $categoriesFilterSettings['searchScope'] = 'all';
+            }
             $categoriesFilterSettings['showBasic'] = '1';
             $categoriesFilterSettings['showAdvanced'] = '1';
             $categoriesFilterSettings['showExpert'] = '1';
@@ -321,69 +279,11 @@ class EditorController extends ActionController
          */
         $this->tsParser->applyToPid($pid, $data, $check);
         $this->redirect('index');
-
-        $this->themeRepository->findByUid([])->getAllPreviewImages();
     }
 
-    /**
-     * Show theme details.
-     *
-     * @return void
-     */
-    public function showThemeAction()
+    public function createAction()
     {
-        $this->view->assignMultiple(
-            [
-                'selectedTheme'     => $this->selectedTheme,
-                'selectableThemes'  => $this->themeRepository->findAll(),
-                'themeIsSelectable' => CheckPageUtility::hasThemeableSysTemplateRecord($this->id),
-                'pid'               => $this->id,
-            ]
-        );
-    }
 
-    /**
-     * activate a theme.
-     *
-     * @param string $theme
-     *
-     * @return void
-     */
-    public function showThemeDetailsAction($theme = null)
-    {
-        $themeObject = $this->themeRepository->findByIdentifier($theme);
-        $this->view->assign('theme', $themeObject);
-    }
-
-    /**
-     * activate a theme.
-     *
-     * @param string $theme
-     *
-     * @return void
-     */
-    public function setThemeAction($theme = null)
-    {
-        $sysTemplateRecordUid = CheckPageUtility::getThemeableSysTemplateRecord($this->id);
-        if (($sysTemplateRecordUid !== false) && ($theme !== null)) {
-            $record = [
-                'sys_template' => [
-                    $sysTemplateRecordUid => [
-                        'tx_themes_skin' => $theme,
-                    ],
-                ],
-            ];
-            $tce = new \TYPO3\CMS\Core\DataHandling\DataHandler();
-            $tce->stripslashes_values = 0;
-            $user = clone $this->getBackendUser();
-            $user->user['admin'] = 1;
-            $tce->start($record, [], $user);
-            $tce->process_datamap();
-            $tce->clear_cacheCmd('pages');
-        } else {
-            $this->addFlashMessage('Problem selecting theme', '', FlashMessage::ERROR);
-        }
-        $this->redirect('index');
     }
 
     /**
@@ -450,9 +350,6 @@ class EditorController extends ActionController
         // Validation definition
         $validSettings = [
             'searchScope'  => 'string',
-            'showBasic'    => 'boolean',
-            'showAdvanced' => 'boolean',
-            'showExpert'   => 'boolean',
         ];
         // Validate params
         $categoriesFilterSettings = [];
@@ -474,6 +371,7 @@ class EditorController extends ActionController
             'error' => '',
             'data' => $categoriesFilterSettings,
         ];
+        DebuggerUtility::var_dump($response);
         return json_encode($response);
     }
 

@@ -27,34 +27,30 @@ namespace KayStrobach\Themes\ViewHelpers\Widget;
  * This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
-use TYPO3Fluid\Fluid\Core\ViewHelper\AbstractViewHelper;
+use TYPO3\CMS\Fluid\Core\Widget\AbstractWidgetViewHelper;
+use KayStrobach\Themes\ViewHelpers\Widget\Controller\LanguageMenuController;
 
 /**
  * Provides a Language Menu.
  *
  * @author Thomas Deuling <typo3@coding.ms>
  */
-class LanguageMenuViewHelper extends AbstractViewHelper
+class LanguageMenuViewHelper extends AbstractWidgetViewHelper
 {
     /**
-     * Specifies whether the escaping interceptors should be disabled or enabled for the result of renderChildren() calls within this ViewHelper
-     * @see isChildrenEscapingEnabled()
-     *
-     * Note: If this is NULL the value of $this->escapingInterceptorEnabled is considered for backwards compatibility
-     *
-     * @var bool
-     * @api
+     * @var \KayStrobach\Themes\ViewHelpers\Widget\Controller\LanguageMenuController
      */
-    protected $escapeChildren = false;
+    protected $controller;
 
     /**
-     * Specifies whether the escaping interceptors should be disabled or enabled for the render-result of this ViewHelper
-     * @see isOutputEscapingEnabled()
+     * @param \KayStrobach\Themes\ViewHelpers\Widget\Controller\LanguageMenuController $controller
      *
-     * @var bool
-     * @api
+     * @return void
      */
-    protected $escapeOutput = false;
+    public function injectController(LanguageMenuController $controller)
+    {
+        $this->controller = $controller;
+    }
 
     /**
      * initialize the arguments of the viewHelper.
@@ -81,6 +77,6 @@ class LanguageMenuViewHelper extends AbstractViewHelper
      */
     public function render()
     {
-        return '<!-- this widget is currently not available -->';
+        return $this->initiateSubRequest();
     }
 }
