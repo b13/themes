@@ -44,7 +44,6 @@ use TYPO3\CMS\Core\Utility\PathUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\View\ViewInterface;
 use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
-use TYPO3\CMS\Extbase\Utility\DebuggerUtility;
 use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
@@ -371,7 +370,6 @@ class EditorController extends ActionController
             'error' => '',
             'data' => $categoriesFilterSettings,
         ];
-        DebuggerUtility::var_dump($response);
         return json_encode($response);
     }
 
