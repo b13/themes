@@ -164,8 +164,12 @@ class EditorController extends ActionController
                     ]
                 ]
             ];
-            $dataHandler->start($data, []);
+            $user = clone $GLOBALS['BE_USER'];
+            $user->user['admin'] = 1;
+            $dataHandler->start($data, [], $user);
             $dataHandler->process_datamap();
+            $dataHandler->clear_cacheCmd('pages');
+            unset($user);
         }
         $uri = $this->uriBuilder->reset()->uriFor('index');
         return new RedirectResponse($uri);
