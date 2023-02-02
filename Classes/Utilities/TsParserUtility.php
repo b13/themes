@@ -258,7 +258,7 @@ class TsParserUtility implements SingletonInterface
                 $this->tsParserConstants = $this->tsParser->generateConfig_constants();
                 // The returned constants are sorted in categories, that goes into the $tmpl->categories array
                 $this->tsParser->ext_categorizeEditableConstants($this->tsParserConstants);
-                $this->tsParser->ext_regObjectPositions($this->tsParserTplRow['constants']);
+                $this->tsParser->ext_regObjectPositions($this->tsParserTplRow['constants'] ?? '');
                 // This array will contain key=[expanded constantname], value=linenumber in template. (after edit_divider, if any)
                 return true;
             } else {

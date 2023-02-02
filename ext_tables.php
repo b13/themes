@@ -20,9 +20,6 @@ if (!defined('TYPO3')) {
         'labels'         => 'LLL:EXT:themes/Resources/Private/Language/locallang.xlf',
     ]
 );
-// Add some backend stylesheets and javascript
-$GLOBALS['TYPO3_CONF_VARS']['SC_OPTIONS']['t3lib/class.t3lib_pagerenderer.php']['render-preProcess'][]
-    = \KayStrobach\Themes\Hooks\PageRenderer::class . '->addJSCSS';
 
 
 // register svg icons: identifier and filename

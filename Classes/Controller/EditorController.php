@@ -27,172 +27,66 @@ namespace KayStrobach\Themes\Controller;
  * This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
-use KayStrobach\Themes\Domain\Repository\ThemeRepository;
-use KayStrobach\Themes\Utilities\CheckPageUtility;
-use KayStrobach\Themes\Utilities\FindParentPageWithThemeUtility;
+use KayStrobach\Themes\Domain\Repository\TemplateRepository;
 use KayStrobach\Themes\Utilities\TsParserUtility;
+use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Template\Components\ButtonBar;
+use TYPO3\CMS\Backend\Template\ModuleTemplate;
+use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
-use TYPO3\CMS\Backend\View\BackendTemplateView;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\DataHandling\DataHandler;
+use TYPO3\CMS\Core\Http\JsonResponse;
+use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\Icon;
 use TYPO3\CMS\Core\Imaging\IconFactory;
-use TYPO3\CMS\Core\Messaging\FlashMessage;
-use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Core\Utility\PathUtility;
+use TYPO3\CMS\Core\Utility\StringUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TYPO3\CMS\Extbase\Mvc\View\ViewInterface;
-use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
-use TYPO3\CMS\Extbase\Utility\LocalizationUtility;
 use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
-/**
- * Class EditorController.
- */
 class EditorController extends ActionController
 {
+    protected string $extensionName = 'Themes';
+    protected int $id = 0;
+    protected TemplateRepository $templateRepository;
+    protected ?array $template = null;
+    protected TsParserUtility $tsParser;
+    protected array $externalConfig = [];
+    protected array $deniedFields = [];
+    protected array $allowedCategories = [];
+    protected IconFactory $iconFactory;
+    protected ?ModuleTemplate $moduleTemplate;
+    protected PageRenderer $pageRenderer;
+    protected ModuleTemplateFactory $moduleTemplateFactory;
 
-    /**
-     * @var string Key of the extension this controller belongs to
-     */
-    protected $extensionName = 'Themes';
-
-    /**
-     * @var int
-     */
-    protected $id = 0;
-
-    /**
-     * @var \KayStrobach\Themes\Domain\Repository\ThemeRepository
-     */
-    protected $themeRepository;
-
-    /**
-     * @var TsParserUtility
-     */
-    protected $tsParser = null;
-
-    /**
-     * external config.
-     */
-    protected $externalConfig = [];
-
-    /**
-     * @var array
-     */
-    protected $deniedFields = [];
-
-    /**
-     * @var array
-     */
-    protected $allowedCategories = [];
-
-    /**
-     * @var IconFactory
-     */
-    protected $iconFactory;
-
-    /**
-     * BackendTemplateContainer
-     *
-     * @var BackendTemplateView
-     */
-    protected $view;
-
-    /**
-     * Backend Template Container
-     *
-     * @var BackendTemplateView
-     */
-    protected $defaultViewObjectName = BackendTemplateView::class;
-
-    /**
-     * @var \KayStrobach\Themes\Domain\Model\Theme
-     */
-    protected $selectedTheme = null;
-
-    /**
-     * @param \KayStrobach\Themes\Domain\Repository\ThemeRepository $themeRepository
-     */
-    public function injectThemeRepository(ThemeRepository $themeRepository)
-    {
-        $this->themeRepository = $themeRepository;
+    public function __construct(
+        IconFactory $iconFactory,
+        PageRenderer $pageRenderer,
+        ModuleTemplateFactory $moduleTemplateFactory,
+        TemplateRepository $templateRepository,
+        TsParserUtility $tsParser
+    ) {
+        $this->iconFactory = $iconFactory;
+        $this->pageRenderer = $pageRenderer;
+        $this->moduleTemplateFactory = $moduleTemplateFactory;
+        $this->templateRepository = $templateRepository;
+        $this->tsParser = $tsParser;
     }
 
-    /**
-     * Set up the doc header properly here
-     *
-     * @param ViewInterface $view
-     */
-    protected function initializeView(ViewInterface $view)
+    protected function initializeAction(): void
     {
-        /** @var BackendTemplateView $view */
-        parent::initializeView($view);
-        if ($this->view->getModuleTemplate() !== null) {
-            $pageRenderer = $this->view->getModuleTemplate()->getPageRenderer();
-            $pageRenderer->loadRequireJsModule('TYPO3/CMS/Themes/Colorpicker');
-            $pageRenderer->loadRequireJsModule('TYPO3/CMS/Themes/ThemesBackendModule');
-            $extRealPath = '../' . PathUtility::stripPathSitePrefix(ExtensionManagementUtility::extPath('themes'));
-            $pageRenderer->addCssFile($extRealPath . 'Resources/Public/Stylesheet/BackendModule.css');
-            $pageRenderer->addCssFile($extRealPath . 'Resources/Public/Contrib/colorpicker/css/colorpicker.css');
-            // Initialize icon factory
-            $this->iconFactory = GeneralUtility::makeInstance(IconFactory::class);
-            // Try to load the selected theme
-            $this->selectedTheme = $this->themeRepository->findByPageId($this->id);
-            // Create menu and buttons
-            $this->createButtons();
-        }
-    }
-
-    /**
-     * Add menu buttons for specific actions
-     *
-     * @return void
-     */
-    protected function createButtons()
-    {
-        $buttonBar = $this->view->getModuleTemplate()->getDocHeaderComponent()->getButtonBar();
-        $uriBuilder = $this->objectManager->get(UriBuilder::class);
-        $uriBuilder->setRequest($this->request);
-        $buttons = [];
-        if ($this->selectedTheme !== null) {
-            $buttons[] = $buttonBar->makeInputButton()
-                ->setName('save')
-                ->setValue('1')
-                ->setForm('saveableForm')
-                ->setIcon($this->iconFactory->getIcon('actions-document-save', Icon::SIZE_SMALL))
-                ->setTitle('Save');
-        }
-        foreach ($buttons as $button) {
-            $buttonBar->addButton($button, ButtonBar::BUTTON_POSITION_LEFT);
-        }
-    }
-
-    /**
-     * @param string $extensionKey
-     * @return array
-     * @throws \TYPO3\CMS\Core\Configuration\Exception\ExtensionConfigurationExtensionNotConfiguredException
-     * @throws \TYPO3\CMS\Core\Configuration\Exception\ExtensionConfigurationPathDoesNotExistException
-     */
-    protected function getExtensionConfiguration(string $extensionKey): array
-    {
-        /** @var ExtensionConfiguration $extensionConfiguration */
-        $extensionConfiguration = GeneralUtility::makeInstance(ExtensionConfiguration::class);
-        /** @var array $configuration */
-        $configuration = $extensionConfiguration->get($extensionKey);
-        return $configuration;
-    }
-
-    /**
-     * Initializes the controller before invoking an action method.
-     *
-     * @return void
-     */
-    protected function initializeAction()
-    {
+        $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
         $this->id = (int)GeneralUtility::_GET('id');
-        $this->tsParser = new TsParserUtility();
+        $this->pageRenderer->loadRequireJsModule('TYPO3/CMS/Themes/Colorpicker');
+        $this->pageRenderer->loadRequireJsModule('TYPO3/CMS/Themes/ThemesBackendModule');
+        $this->pageRenderer->addCssFile( 'EXT:themes/Resources/Public/Stylesheet/BackendModule.css');
+        $this->pageRenderer->addCssFile('EXT:themes/Resources/Public/Contrib/colorpicker/css/colorpicker.css');
+        // Try to load the selected template
+        $this->template = $this->templateRepository->findByPageId($this->id);
+        // Create menu and buttons
+        $this->createButtons();
         // Get extension configuration
         $extensionConfiguration = $this->getExtensionConfiguration('themes');
         // Initially, get configuration from extension manager!
@@ -229,17 +123,10 @@ class EditorController extends ActionController
         // initialize normally used values
     }
 
-    /**
-     * show available constants.
-     *
-     * @return void
-     */
-    public function indexAction()
+    public function indexAction(): ResponseInterface
     {
-        $this->view->assign('selectableThemes', $this->themeRepository->findAll());
-        if ($this->selectedTheme !== null) {
-            $nearestPageWithTheme = $this->id;
-            $this->view->assign('selectedTheme', $this->selectedTheme);
+        if ($this->template !== null) {
+            $this->view->assign('template', $this->template);
             $this->view->assign('categories', $this->renderFields($this->tsParser, $this->id, $this->allowedCategories, $this->deniedFields));
             $categoriesFilterSettings = $this->getBackendUser()->getModuleData('mod-web_ThemesMod1/Categories/Filter/Settings', 'ses');
             if ($categoriesFilterSettings === null) {
@@ -250,50 +137,96 @@ class EditorController extends ActionController
             $categoriesFilterSettings['showAdvanced'] = '1';
             $categoriesFilterSettings['showExpert'] = '1';
             $this->view->assign('categoriesFilterSettings', $categoriesFilterSettings);
-        } elseif ($this->id !== 0) {
-            $nearestPageWithTheme = FindParentPageWithThemeUtility::find($this->id);
-        } else {
-            $nearestPageWithTheme = 0;
         }
-
-
         $this->view->assign('pid', $this->id);
-        $this->view->assign('nearestPageWithTheme', $nearestPageWithTheme);
-        $this->view->assign('themeIsSelectable', CheckPageUtility::hasThemeableSysTemplateRecord($this->id));
+        return $this->renderResponse();
     }
 
-    /**
-     * save changed constants.
-     *
-     * @param array $data
-     * @param array $check
-     * @param int   $pid
-     *
-     * @return void
-     */
-    public function updateAction(array $data, array $check, $pid)
+    public function updateAction(array $data, array $check, int $pid): ResponseInterface
     {
         /*
          * @todo check wether user has access to page BEFORE SAVE!
          */
         $this->tsParser->applyToPid($pid, $data, $check);
-        $this->redirect('index');
+        $uri = $this->uriBuilder->reset()->uriFor('index');
+        return new RedirectResponse($uri);
     }
 
     public function createAction()
     {
-
+        if ($this->id > 0 && $this->template === null) {
+            $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+            $data = [
+                'sys_template' => [
+                    StringUtility::getUniqueId('NEW') => [
+                        'pid' => $this->id,
+                        'title' => 'theme template'
+                    ]
+                ]
+            ];
+            $dataHandler->start($data, []);
+            $dataHandler->process_datamap();
+        }
+        $uri = $this->uriBuilder->reset()->uriFor('index');
+        return new RedirectResponse($uri);
     }
 
-    /**
-     * @param \KayStrobach\Themes\Utilities\TsParserUtility $tsParserWrapper
-     * @param $pid
-     * @param null|array $allowedCategories
-     * @param null|array $deniedFields
-     *
-     * @return array
-     */
-    protected function renderFields(TsParserUtility $tsParserWrapper, $pid, $allowedCategories = null, $deniedFields = null)
+    public function saveCategoriesFilterSettingsAction(): ResponseInterface
+    {
+        // Validation definition
+        $validSettings = [
+            'searchScope'  => 'string',
+        ];
+        // Validate params
+        $categoriesFilterSettings = [];
+        foreach ($validSettings as $setting => $type) {
+            if ($this->request->hasArgument($setting)) {
+                if ($type == 'boolean') {
+                    $categoriesFilterSettings[$setting] = (bool) $this->request->getArgument($setting) ? '1' : '0';
+                } elseif ($type == 'string') {
+                    $categoriesFilterSettings[$setting] = ctype_alpha($this->request->getArgument($setting)) ? $this->request->getArgument($setting) : 'all';
+                }
+            }
+        }
+        // Save settings
+        $this->getBackendUser()->pushModuleData('mod-web_ThemesMod1/Categories/Filter/Settings', $categoriesFilterSettings);
+        //
+        // Create JSON-String
+        $response = [
+            'success' => '',
+            'error' => '',
+            'data' => $categoriesFilterSettings,
+        ];
+        return new JsonResponse($response);
+    }
+
+    protected function createButtons(): void
+    {
+        $buttonBar = $this->moduleTemplate->getDocHeaderComponent()->getButtonBar();
+        $buttons = [];
+        if ($this->template !== null) {
+            $buttons[] = $buttonBar->makeInputButton()
+                ->setName('save')
+                ->setValue('1')
+                ->setForm('saveableForm')
+                ->setIcon($this->iconFactory->getIcon('actions-document-save', Icon::SIZE_SMALL))
+                ->setTitle('Save');
+        }
+        foreach ($buttons as $button) {
+            $buttonBar->addButton($button, ButtonBar::BUTTON_POSITION_LEFT);
+        }
+    }
+
+    protected function getExtensionConfiguration(string $extensionKey): array
+    {
+        /** @var ExtensionConfiguration $extensionConfiguration */
+        $extensionConfiguration = GeneralUtility::makeInstance(ExtensionConfiguration::class);
+        /** @var array $configuration */
+        $configuration = $extensionConfiguration->get($extensionKey);
+        return $configuration;
+    }
+
+    protected function renderFields(TsParserUtility $tsParserWrapper, int $pid, array $allowedCategories = null, array $deniedFields = null): array
     {
         $definition = [];
         $categories = $tsParserWrapper->getCategories($pid);
@@ -344,33 +277,14 @@ class EditorController extends ActionController
         return array_values($definition);
     }
 
-    public function saveCategoriesFilterSettingsAction()
+    protected function renderResponse(): ResponseInterface
     {
-        // Validation definition
-        $validSettings = [
-            'searchScope'  => 'string',
-        ];
-        // Validate params
-        $categoriesFilterSettings = [];
-        foreach ($validSettings as $setting => $type) {
-            if ($this->request->hasArgument($setting)) {
-                if ($type == 'boolean') {
-                    $categoriesFilterSettings[$setting] = (bool) $this->request->getArgument($setting) ? '1' : '0';
-                } elseif ($type == 'string') {
-                    $categoriesFilterSettings[$setting] = ctype_alpha($this->request->getArgument($setting)) ? $this->request->getArgument($setting) : 'all';
-                }
-            }
-        }
-        // Save settings
-        $this->getBackendUser()->pushModuleData('mod-web_ThemesMod1/Categories/Filter/Settings', $categoriesFilterSettings);
-        //
-        // Create JSON-String
-        $response = [
-            'success' => '',
-            'error' => '',
-            'data' => $categoriesFilterSettings,
-        ];
-        return json_encode($response);
+        $this->moduleTemplate->setContent($this->view->render());
+        $html = $this->moduleTemplate->renderContent();
+        $response = $this->responseFactory->createResponse()
+            ->withHeader('Content-Type', 'text/html; charset=utf-8');
+        $response->getBody()->write($html ?? $this->view->render());
+        return $response;
     }
 
     /**
