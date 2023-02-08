@@ -28,6 +28,7 @@ namespace KayStrobach\Themes\Utilities;
  ***************************************************************/
 
 use KayStrobach\Themes\TypoScript\ExtendedTemplateService;
+use Mexitek\PHPColors\Color;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\ExtensionManagementUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -176,21 +177,18 @@ class TsParserUtility implements SingletonInterface
      */
     protected function setConstants($pid, $constants, $isSetConstants = [])
     {
-        $this->getConstants($pid);
-
-        $filteredConstants = [];
-        /*
-        foreach($constants as $constant) {
-            foreach($this->tsParserConstants as $allowedConstants) {
-                if($constant['name'] == $allowedConstants['name']) {
-                    $filteredConstants[] = $constant;
-                    break;
+        // allow color as string, convert it to hex
+        foreach ($constants as $key => $val) {
+            if (is_array($this->tsParserConstants[$key])) {
+                $config = $this->tsParserConstants[$key];
+                $type = $config['type'];
+                if ($type === 'color') {
+                    $constants[$key] = Color::nameToHex($val);
                 }
             }
         }
-        */
-        $filteredConstants = $constants;
 
+        $this->getConstants($pid);
         $postData = [
             'data'  => $constants,
             'check' => $isSetConstants,
