@@ -252,6 +252,14 @@ class TsParserUtility implements SingletonInterface
                 }
                 // This generates the constants/config + hierarchy info for the template.
                 $this->tsParser->runThroughTemplates($rootLine, $templateUid);
+                $constants = $this->tsParser->constants;
+                $nonEmptyConstants = [];
+                foreach ($constants as $constant) {
+                    if (trim($constant) !== '') {
+                        $nonEmptyConstants[] = $constant;
+                    }
+                }
+                $this->tsParser->constants = $nonEmptyConstants;
                 // The editable constants are returned in an array.
                 $this->tsParserConstants = $this->tsParser->generateConfig_constants();
                 // The returned constants are sorted in categories, that goes into the $tmpl->categories array
