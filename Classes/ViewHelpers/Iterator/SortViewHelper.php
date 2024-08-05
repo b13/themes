@@ -50,9 +50,6 @@ class SortViewHelper extends AbstractViewHelper
     public function render()
     {
         $subject = $this->arguments['subject'];
-        $key = $this->arguments['key'];
-
-        $this->arguments['key'] = $key;
         if (null === $subject) {
             $subject = $this->renderChildren();
         }

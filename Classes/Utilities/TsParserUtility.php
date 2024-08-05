@@ -150,6 +150,7 @@ class TsParserUtility implements SingletonInterface
     public function getSubCategories($pid)
     {
         $this->initializeTsParser($pid);
+        return [];
 
         return $this->tsParser->subCategories;
     }
@@ -208,7 +209,6 @@ class TsParserUtility implements SingletonInterface
              * @var \TYPO3\CMS\Core\DataHandling\DataHandler
              */
             $tce = GeneralUtility::makeInstance(\TYPO3\CMS\Core\DataHandling\DataHandler::class);
-            $tce->stripslashes_values = 0;
 
             /*
              * Save data and clear the cache
@@ -238,9 +238,6 @@ class TsParserUtility implements SingletonInterface
             // Do not log time-performance information
             $this->tsParser->tt_track = 0;
 
-            $this->tsParser->ext_localGfxPrefix = ExtensionManagementUtility::extPath('tstemplate');
-            $this->tsParser->ext_localWebGfxPrefix = $GLOBALS['BACK_PATH'] . PathUtility::stripPathSitePrefix(ExtensionManagementUtility::extPath('tstemplate'));
-
             $this->tsParserTplRow = $this->tsParser->ext_getFirstTemplate($pageId, $templateUid);
 
             if (is_array($this->tsParserTplRow)) {
@@ -252,14 +249,6 @@ class TsParserUtility implements SingletonInterface
                 }
                 // This generates the constants/config + hierarchy info for the template.
                 $this->tsParser->runThroughTemplates($rootLine, $templateUid);
-                $constants = $this->tsParser->constants;
-                $nonEmptyConstants = [];
-                foreach ($constants as $constant) {
-                    if (trim($constant) !== '') {
-                        $nonEmptyConstants[] = $constant;
-                    }
-                }
-                $this->tsParser->constants = $nonEmptyConstants;
                 // The editable constants are returned in an array.
                 $this->tsParserConstants = $this->tsParser->generateConfig_constants();
                 // The returned constants are sorted in categories, that goes into the $tmpl->categories array

@@ -60,7 +60,7 @@
 									</tr>
 								</thead>
 								<tbody>
-									<f:for each="{themes:iterator.sort(subject: subcategory)}" as="item">
+									<f:for each="{subcategory}" as="item">
 										<tr title="{item.name}" data-userscope="{item.userScope}" data-subcategory="{item.subCategory}" class="constantLine db_list_normal visible {f:if(condition:'{item.isDefault}', then:'defaultValueIsSelected')}">
 											<td nowrap="nowrap" class="editToggle">
 												<div class="showOnDefault">

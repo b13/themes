@@ -98,7 +98,7 @@ class EditorController extends ActionController
             'mod.tx_themes.constantCategoriesToShow',
             BackendUtility::getPagesTSconfig($this->id)
         );
-        if ($externalConstantCategoriesToShow['value']) {
+        if ($externalConstantCategoriesToShow['value'] ?? false) {
             $this->externalConfig['constantCategoriesToShow'] = GeneralUtility::trimExplode(',', $externalConstantCategoriesToShow['value']);
             $extensionConfiguration['categoriesToShow'] = array_merge(
                 $extensionConfiguration['categoriesToShow'],
@@ -111,7 +111,7 @@ class EditorController extends ActionController
             'mod.tx_themes.constantsToHide',
             BackendUtility::getPagesTSconfig($this->id)
         );
-        if ($externalConstantsToHide['value']) {
+        if ($externalConstantsToHide['value'] ?? false) {
             $this->externalConfig['constantsToHide'] = GeneralUtility::trimExplode(',', $externalConstantsToHide['value']);
             $extensionConfiguration['constantsToHide'] = array_merge(
                 $extensionConfiguration['constantsToHide'],
@@ -250,7 +250,7 @@ class EditorController extends ActionController
                 ];
                 foreach (array_keys($category) as $constantName) {
                     if (($deniedFields === null) || (!in_array($constantName, $deniedFields))) {
-                        if (isset($subcategories[$constants[$constantName]['subcat_name']][0])) {
+                        if (isset($constants[$constantName]['subcat_name']) && isset($subcategories[$constants[$constantName]['subcat_name']][0])) {
                             $constants[$constantName]['subcat_name'] = $subcategories[$constants[$constantName]['subcat_name']][0];
                         }
                         // Basic, advanced or expert?!
