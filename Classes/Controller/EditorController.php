@@ -234,7 +234,6 @@ class EditorController extends ActionController
     {
         $definition = [];
         $categories = $tsParserWrapper->getCategories($pid);
-        $subcategories = $tsParserWrapper->getSubCategories($pid);
         $constants = $tsParserWrapper->getConstants($pid);
         foreach ($categories as $categoryName => $category) {
             asort($category);
@@ -250,18 +249,8 @@ class EditorController extends ActionController
                 ];
                 foreach (array_keys($category) as $constantName) {
                     if (($deniedFields === null) || (!in_array($constantName, $deniedFields))) {
-                        if (isset($constants[$constantName]['subcat_name']) && isset($subcategories[$constants[$constantName]['subcat_name']][0])) {
-                            $constants[$constantName]['subcat_name'] = $subcategories[$constants[$constantName]['subcat_name']][0];
-                        }
                         // Basic, advanced or expert?!
-                        $constants[$constantName]['userScope'] = 'advanced';
-                        if (isset($categories['basic']) && array_key_exists($constants[$constantName]['name'], $categories['basic'])) {
-                            $constants[$constantName]['userScope'] = 'basic';
-                        } elseif (isset($categories['advanced']) && array_key_exists($constants[$constantName]['name'], $categories['advanced'])) {
-                            $constants[$constantName]['userScope'] = 'advanced';
-                        } elseif (isset($categories['expert']) && array_key_exists($constants[$constantName]['name'], $categories['expert'])) {
-                            $constants[$constantName]['userScope'] = 'expert';
-                        }
+                        $constants[$constantName]['userScope'] = 'basic';
                         // Only get the first category
                         $catParts = explode(',', $constants[$constantName]['cat']);
                         if (isset($catParts[1])) {
