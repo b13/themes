@@ -1,16 +1,15 @@
 <?php
 
 declare(strict_types=1);
+
 namespace KayStrobach\Themes\Domain\Repository;
 
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\SingletonInterface;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class TemplateRepository implements SingletonInterface
 {
-
     public function findByPageId(int $pid): ?array
     {
         $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('sys_template');
@@ -22,7 +21,7 @@ class TemplateRepository implements SingletonInterface
         if (!empty($GLOBALS['TCA']['sys_template']['ctrl']['sortby'])) {
             $queryBuilder->orderBy($GLOBALS['TCA']['sys_template']['ctrl']['sortby']);
         }
-        $templateRow = $queryBuilder->execute()->fetchAssociative();
+        $templateRow = $queryBuilder->executeQuery()->fetchAssociative();
         if ($templateRow === false) {
             return null;
         }

@@ -1,7 +1,17 @@
 <div class="showOnDefault">
-	<span class="field_default">{field.default_value}</span>
+	<span class="field_default">{field.value}</span>
 </div>
 <div class="hideOnDefault">
-	<f:form.select name="data[{field.name}]" value="{field.value}" options="{field.options}"
-				   class="form-control input-sm" />
+	<f:form.select name="data[{field.name}]" class="form-control input-sm">
+	<f:for each="{field.labelValueArray}" as="option">
+		<f:if condition="{option.selected}">
+			<f:then>
+				<f:form.select.option value="{option.value}" selected="1">{option.label}</f:form.select.option>
+			</f:then>
+			<f:else>
+				<f:form.select.option value="{option.value}">{option.label}</f:form.select.option>
+			</f:else>
+		</f:if>
+	</f:for>
+	</f:form.select>
 </div>

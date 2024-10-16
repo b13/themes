@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace KayStrobach\Themes\Controller;
 
 /***************************************************************
@@ -28,60 +30,63 @@ namespace KayStrobach\Themes\Controller;
  ***************************************************************/
 
 use KayStrobach\Themes\Domain\Repository\TemplateRepository;
-use KayStrobach\Themes\Utilities\TsParserUtility;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Authentication\BackendUserAuthentication;
+use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Imaging\Icon;
 use TYPO3\CMS\Core\Imaging\IconFactory;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\TypoScript\AST\AstBuilderInterface;
+use TYPO3\CMS\Core\TypoScript\AST\Node\RootNode;
+use TYPO3\CMS\Core\TypoScript\AST\Traverser\AstTraverser;
+use TYPO3\CMS\Core\TypoScript\AST\Visitor\AstConstantCommentVisitor;
+use TYPO3\CMS\Core\TypoScript\IncludeTree\SysTemplateRepository;
+use TYPO3\CMS\Core\TypoScript\IncludeTree\SysTemplateTreeBuilder;
+use TYPO3\CMS\Core\TypoScript\IncludeTree\Traverser\IncludeTreeTraverser;
+use TYPO3\CMS\Core\TypoScript\IncludeTree\Visitor\IncludeTreeCommentAwareAstBuilderVisitor;
+use TYPO3\CMS\Core\TypoScript\Tokenizer\LosslessTokenizer;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
+use TYPO3\CMS\Core\Utility\MathUtility;
+use TYPO3\CMS\Core\Utility\RootlineUtility;
 use TYPO3\CMS\Core\Utility\StringUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 
 class EditorController extends ActionController
 {
     protected string $extensionName = 'Themes';
     protected int $id = 0;
-    protected TemplateRepository $templateRepository;
     protected ?array $template = null;
-    protected TsParserUtility $tsParser;
-    protected array $externalConfig = [];
     protected array $deniedFields = [];
     protected array $allowedCategories = [];
-    protected IconFactory $iconFactory;
     protected ?ModuleTemplate $moduleTemplate;
-    protected PageRenderer $pageRenderer;
-    protected ModuleTemplateFactory $moduleTemplateFactory;
 
     public function __construct(
-        IconFactory $iconFactory,
-        PageRenderer $pageRenderer,
-        ModuleTemplateFactory $moduleTemplateFactory,
-        TemplateRepository $templateRepository,
-        TsParserUtility $tsParser
-    ) {
-        $this->iconFactory = $iconFactory;
-        $this->pageRenderer = $pageRenderer;
-        $this->moduleTemplateFactory = $moduleTemplateFactory;
-        $this->templateRepository = $templateRepository;
-        $this->tsParser = $tsParser;
-    }
+        protected IconFactory $iconFactory,
+        protected PageRenderer $pageRenderer,
+        protected ModuleTemplateFactory $moduleTemplateFactory,
+        protected TemplateRepository $templateRepository,
+        private readonly SysTemplateRepository $sysTemplateRepository,
+        private readonly SysTemplateTreeBuilder $treeBuilder,
+        private readonly IncludeTreeTraverser $treeTraverser,
+        private readonly AstTraverser $astTraverser,
+        private readonly AstBuilderInterface $astBuilder,
+        private readonly LosslessTokenizer $losslessTokenizer,
+    ) {}
 
     protected function initializeAction(): void
     {
         $this->moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        $this->id = (int)GeneralUtility::_GET('id');
-        $this->pageRenderer->loadRequireJsModule('TYPO3/CMS/Themes/Colorpicker');
-        $this->pageRenderer->loadRequireJsModule('TYPO3/CMS/Themes/ThemesBackendModule');
-        $this->pageRenderer->addCssFile( 'EXT:themes/Resources/Public/Stylesheet/BackendModule.css');
+        $this->id = (int)$this->request->getQueryParams()['id'];
+        $this->pageRenderer->loadJavaScriptModule('@kaystrobach/themes/Colorpicker.js');
+        $this->pageRenderer->loadJavaScriptModule('@kaystrobach/themes/ThemesBackendModule.js');
+        $this->pageRenderer->addCssFile('EXT:themes/Resources/Public/Stylesheet/BackendModule.css');
         $this->pageRenderer->addCssFile('EXT:themes/Resources/Public/Contrib/colorpicker/css/colorpicker.css');
         // Try to load the selected template
         $this->template = $this->templateRepository->findByPageId($this->id);
@@ -90,44 +95,55 @@ class EditorController extends ActionController
         // Get extension configuration
         $extensionConfiguration = $this->getExtensionConfiguration('themes');
         // Initially, get configuration from extension manager!
-        $extensionConfiguration['categoriesToShow'] = GeneralUtility::trimExplode(',', $extensionConfiguration['categoriesToShow']);
-        $extensionConfiguration['constantsToHide'] = GeneralUtility::trimExplode(',', $extensionConfiguration['constantsToHide']);
-        // mod.tx_themes.constantCategoriesToShow.value
-        // Get value from page/user typoscript
-        $externalConstantCategoriesToShow = $this->getBackendUser()->getTSConfig(
-            'mod.tx_themes.constantCategoriesToShow',
-            BackendUtility::getPagesTSconfig($this->id)
-        );
-        if ($externalConstantCategoriesToShow['value'] ?? false) {
-            $this->externalConfig['constantCategoriesToShow'] = GeneralUtility::trimExplode(',', $externalConstantCategoriesToShow['value']);
-            $extensionConfiguration['categoriesToShow'] = array_merge(
-                $extensionConfiguration['categoriesToShow'],
-                $this->externalConfig['constantCategoriesToShow']
-            );
-        }
-        // mod.tx_themes.constantsToHide.value
-        // Get value from page/user typoscript
-        $externalConstantsToHide = $this->getBackendUser()->getTSConfig(
-            'mod.tx_themes.constantsToHide',
-            BackendUtility::getPagesTSconfig($this->id)
-        );
-        if ($externalConstantsToHide['value'] ?? false) {
-            $this->externalConfig['constantsToHide'] = GeneralUtility::trimExplode(',', $externalConstantsToHide['value']);
-            $extensionConfiguration['constantsToHide'] = array_merge(
-                $extensionConfiguration['constantsToHide'],
-                $this->externalConfig['constantsToHide']
-            );
-        }
-        $this->allowedCategories = $extensionConfiguration['categoriesToShow'];
-        $this->deniedFields = $extensionConfiguration['constantsToHide'];
+        $this->allowedCategories = GeneralUtility::trimExplode(',', $extensionConfiguration['categoriesToShow']);
+        $this->deniedFields = GeneralUtility::trimExplode(',', $extensionConfiguration['constantsToHide']);
         // initialize normally used values
     }
 
     public function indexAction(): ResponseInterface
     {
         if ($this->template !== null) {
-            $this->view->assign('template', $this->template);
-            $this->view->assign('categories', $this->renderFields($this->tsParser, $this->id, $this->allowedCategories, $this->deniedFields));
+            $this->moduleTemplate->assign('template', $this->template);
+
+            $selectedTemplateUid = $this->template['uid'];
+            $pageUid = $this->id;
+            $request = $this->request;
+            $currentTemplateConstants = $this->template['constants'] ?? '';
+
+            $rootLine = GeneralUtility::makeInstance(RootlineUtility::class, $pageUid)->get();
+            $sysTemplateRows = $this->sysTemplateRepository->getSysTemplateRowsByRootlineWithUidOverride($rootLine, $request, $selectedTemplateUid);
+            $site = $request->getAttribute('site');
+            $constantIncludeTree = $this->treeBuilder->getTreeBySysTemplateRowsAndSite('constants', $sysTemplateRows, $this->losslessTokenizer, $site);
+            $constantAstBuilderVisitor = GeneralUtility::makeInstance(IncludeTreeCommentAwareAstBuilderVisitor::class);
+            $this->treeTraverser->traverse($constantIncludeTree, [$constantAstBuilderVisitor]);
+            $constantAst = $constantAstBuilderVisitor->getAst();
+            $astConstantCommentVisitor = GeneralUtility::makeInstance(AstConstantCommentVisitor::class);
+            $currentTemplateFlatConstants = $this->astBuilder->build($this->losslessTokenizer->tokenize($currentTemplateConstants), new RootNode())->flatten();
+            $astConstantCommentVisitor->setCurrentTemplateFlatConstants($currentTemplateFlatConstants);
+            $this->astTraverser->traverse($constantAst, [$astConstantCommentVisitor]);
+
+            $constants = $astConstantCommentVisitor->getConstants();
+            $allCategories = $astConstantCommentVisitor->getCategories();
+
+            $categories = [];
+            foreach (array_keys($allCategories) as $category) {
+                $arr = GeneralUtility::trimExplode(',', $category);
+                $categoryName = $arr[0];
+                if (in_array($categoryName, $this->allowedCategories, true) && ($arr[1] ?? '') === 'basic') {
+                    $items = [];
+                    foreach ($constants as $name => $config) {
+                        if (str_starts_with($name, 'themes.configuration.' . $categoryName)) {
+                            $items[] = $this->constantConfigForView($config, $categoryName);
+                        }
+                    }
+                    $categories[] = [
+                        'key' => $categoryName,
+                        'title' => $categoryName,
+                        'items' => $items,
+                    ];
+                }
+            }
+            $this->moduleTemplate->assign('categories', $categories);
             $categoriesFilterSettings = $this->getBackendUser()->getModuleData('mod-web_ThemesMod1/Categories/Filter/Settings', 'ses');
             if ($categoriesFilterSettings === null) {
                 $categoriesFilterSettings = [];
@@ -136,10 +152,10 @@ class EditorController extends ActionController
             $categoriesFilterSettings['showBasic'] = '1';
             $categoriesFilterSettings['showAdvanced'] = '1';
             $categoriesFilterSettings['showExpert'] = '1';
-            $this->view->assign('categoriesFilterSettings', $categoriesFilterSettings);
+            $this->moduleTemplate->assign('categoriesFilterSettings', $categoriesFilterSettings);
         }
-        $this->view->assign('pid', $this->id);
-        return $this->renderResponse();
+        $this->moduleTemplate->assign('pid', $this->id);
+        return $this->moduleTemplate->renderResponse('Index');
     }
 
     public function updateAction(array $data, array $check, int $pid): ResponseInterface
@@ -147,12 +163,41 @@ class EditorController extends ActionController
         /*
          * @todo check wether user has access to page BEFORE SAVE!
          */
-        $this->tsParser->applyToPid($pid, $data, $check);
+
+        $selectedTemplateUid = $this->template['uid'];
+        $pageUid = $this->id;
+        $request = $this->request;
+        $templateRow = $this->template;
+
+        $rootLine = GeneralUtility::makeInstance(RootlineUtility::class, $pageUid)->get();
+        $site = $request->getAttribute('site');
+        $sysTemplateRows = $this->sysTemplateRepository->getSysTemplateRowsByRootlineWithUidOverride($rootLine, $request, $selectedTemplateUid);
+        $constantIncludeTree = $this->treeBuilder->getTreeBySysTemplateRowsAndSite('constants', $sysTemplateRows, $this->losslessTokenizer, $site);
+        $constantAstBuilderVisitor = GeneralUtility::makeInstance(IncludeTreeCommentAwareAstBuilderVisitor::class);
+        $this->treeTraverser->traverse($constantIncludeTree, [$constantAstBuilderVisitor]);
+        $constantAst = $constantAstBuilderVisitor->getAst();
+        $astConstantCommentVisitor = GeneralUtility::makeInstance(AstConstantCommentVisitor::class);
+        $this->astTraverser->traverse($constantAst, [$astConstantCommentVisitor]);
+
+        $constants = $astConstantCommentVisitor->getConstants();
+        $updatedTemplateConstantsArray = $this->updateTemplateConstants($request, $constants, $templateRow['constants'] ?? '');
+        if ($updatedTemplateConstantsArray) {
+            $templateUid = $templateRow['uid'];
+            $recordData = [];
+            $recordData['sys_template'][$templateUid]['constants'] = implode(LF, $updatedTemplateConstantsArray);
+            $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+
+            $user = clone $GLOBALS['BE_USER'];
+            $user->user['admin'] = 1;
+            $dataHandler->start($recordData, [], $user);
+            $dataHandler->process_datamap();
+        }
+
         $uri = $this->uriBuilder->reset()->uriFor('index');
         return new RedirectResponse($uri);
     }
 
-    public function createAction()
+    public function createAction(): ResponseInterface
     {
         if ($this->id > 0 && $this->template === null) {
             $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
@@ -160,9 +205,9 @@ class EditorController extends ActionController
                 'sys_template' => [
                     StringUtility::getUniqueId('NEW') => [
                         'pid' => $this->id,
-                        'title' => 'theme template'
-                    ]
-                ]
+                        'title' => 'theme template',
+                    ],
+                ],
             ];
             $user = clone $GLOBALS['BE_USER'];
             $user->user['admin'] = 1;
@@ -175,23 +220,11 @@ class EditorController extends ActionController
         return new RedirectResponse($uri);
     }
 
-    public function saveCategoriesFilterSettingsAction(): ResponseInterface
+    public function saveCategoriesFilterSettingsAction(string $searchScope): ResponseInterface
     {
-        // Validation definition
-        $validSettings = [
-            'searchScope'  => 'string',
-        ];
-        // Validate params
-        $categoriesFilterSettings = [];
-        foreach ($validSettings as $setting => $type) {
-            if ($this->request->hasArgument($setting)) {
-                if ($type == 'boolean') {
-                    $categoriesFilterSettings[$setting] = (bool) $this->request->getArgument($setting) ? '1' : '0';
-                } elseif ($type == 'string') {
-                    $categoriesFilterSettings[$setting] = ctype_alpha($this->request->getArgument($setting)) ? $this->request->getArgument($setting) : 'all';
-                }
-            }
-        }
+
+        $categoriesFilterSettings = ['searchScope' => $searchScope];
+
         // Save settings
         $this->getBackendUser()->pushModuleData('mod-web_ThemesMod1/Categories/Filter/Settings', $categoriesFilterSettings);
         //
@@ -230,54 +263,53 @@ class EditorController extends ActionController
         return $configuration;
     }
 
-    protected function renderFields(TsParserUtility $tsParserWrapper, int $pid, array $allowedCategories = null, array $deniedFields = null): array
+    protected function constantConfigForView(array $config, string $categoryName): array
     {
-        $definition = [];
-        $categories = $tsParserWrapper->getCategories($pid);
-        $constants = $tsParserWrapper->getConstants($pid);
-        foreach ($categories as $categoryName => $category) {
-            asort($category);
-            if (is_array($category) && (($allowedCategories === null) || (in_array($categoryName, $allowedCategories)))) {
-                $title = $GLOBALS['LANG']->sL('LLL:EXT:themes/Resources/Private/Language/Constants/locallang.xml:cat_'.$categoryName);
-                if (strlen($title) === 0) {
-                    $title = $categoryName;
-                }
-                $definition[$categoryName] = [
-                    'key'   => $categoryName,
-                    'title' => $title,
-                    'items' => [],
-                ];
-                foreach (array_keys($category) as $constantName) {
-                    if (($deniedFields === null) || (!in_array($constantName, $deniedFields))) {
-                        // Basic, advanced or expert?!
-                        $constants[$constantName]['userScope'] = 'basic';
-                        // Only get the first category
-                        $catParts = explode(',', $constants[$constantName]['cat']);
-                        if (isset($catParts[1])) {
-                            $constants[$constantName]['cat'] = $catParts[0];
-                        }
-                        // Extract sub category
-                        $subcatParts = explode('/', $constants[$constantName]['subcat']);
-                        if (isset($subcatParts[1])) {
-                            $constants[$constantName]['subCategory'] = $subcatParts[1];
-                        }
-                        $definition[$categoryName]['items'][] = $constants[$constantName];
-                    }
+        $constantConfigForView = [
+            'cat' => $categoryName,
+            'label' => $config['label'],
+            'name' => $config['name'],
+            'isDefault' => (bool)$config['isInCurrentTemplate'] === false,
+            'value' => $config['value'],
+            'default_value' => $config['default_value'],
+            'subcat_name' => $config['subcat_name'],
+            'subCategory' => $config['subcat_name'],
+            'userScope' => 'basic',
+            'labelValueArray' => $config['labelValueArray'] ?? [],
+        ];
+        if ($config['type'] === 'int+') {
+            $constantConfigForView['typeCleaned'] = 'Int';
+        } elseif (substr($config['type'], 0, 3) === 'int') {
+            $constantConfigForView['typeCleaned'] = 'Int';
+            $constantConfigForView['range'] = substr($config['type'], 3);
+        } elseif ($config['type'] === 'small') {
+            $constantConfigForView['typeCleaned'] = 'Text';
+        } elseif ($config['type'] === 'color') {
+            $constantConfigForView['typeCleaned'] = 'Color';
+        } elseif ($config['type'] === 'boolean') {
+            $constantConfigForView['typeCleaned'] = 'Boolean';
+        } elseif ($config['type'] === 'string') {
+            $constantConfigForView['typeCleaned'] = 'String';
+        } elseif (substr($config['type'], 0, 4) === 'file') {
+            $constantConfigForView['typeCleaned'] = 'File';
+        } elseif (substr($config['type'], 0, 7) === 'options') {
+            $constantConfigForView['typeCleaned'] = 'Options';
+            $options = explode(',', substr($config['type'], 8, -1));
+            $constantConfigForView['options'] = [];
+            foreach ($options as $option) {
+                $t = explode('=', $option);
+                if (count($t) === 2) {
+                    $constantConfigForView['options'][$t[1]] = $t[0];
+                } else {
+                    $constantConfigForView['options'][$t[0]] = $t[0];
                 }
             }
+        } elseif ($config['type'] === '') {
+            $constantConfigForView['typeCleaned'] = 'String';
+        } else {
+            $constantConfigForView['typeCleaned'] = 'Fallback';
         }
-
-        return array_values($definition);
-    }
-
-    protected function renderResponse(): ResponseInterface
-    {
-        $this->moduleTemplate->setContent($this->view->render());
-        $html = $this->moduleTemplate->renderContent();
-        $response = $this->responseFactory->createResponse()
-            ->withHeader('Content-Type', 'text/html; charset=utf-8');
-        $response->getBody()->write($html ?? $this->view->render());
-        return $response;
+        return $constantConfigForView;
     }
 
     /**
@@ -286,5 +318,172 @@ class EditorController extends ActionController
     protected function getBackendUser()
     {
         return $GLOBALS['BE_USER'];
+    }
+
+    /** -------------------------- copied from ConstantsEditorController -------------------------------------------- */
+    private function updateTemplateConstants(ServerRequestInterface $request, array $constantDefinitions, string $rawTemplateConstants): ?array
+    {
+        $rawTemplateConstantsArray = explode(LF, $rawTemplateConstants);
+        $constantPositions = $this->calculateConstantPositions($rawTemplateConstantsArray);
+
+        $parsedBody = $request->getParsedBody();
+        $data = $parsedBody['data'] ?? null;
+        $check = $parsedBody['check'] ?? [];
+
+        $valuesHaveChanged = false;
+        if (is_array($data)) {
+            foreach ($data as $key => $value) {
+                if (!isset($constantDefinitions[$key])) {
+                    // Ignore if there is no constant definition for this constant key
+                    continue;
+                }
+                if (!isset($check[$key]) || ($check[$key] !== 'checked' && isset($constantPositions[$key]))) {
+                    // Remove value if the checkbox is not set, indicating "value to be dropped from template"
+                    $rawTemplateConstantsArray = $this->removeValueFromConstantsArray($rawTemplateConstantsArray, $constantPositions, $key);
+                    $valuesHaveChanged = true;
+                    continue;
+                }
+                if ($check[$key] !== 'checked') {
+                    // Don't process if this value is not set
+                    continue;
+                }
+                $constantDefinition = $constantDefinitions[$key];
+                switch ($constantDefinition['type']) {
+                    case 'int':
+                        $min = $constantDefinition['typeIntMin'] ?? PHP_INT_MIN;
+                        $max = $constantDefinition['typeIntMax'] ?? PHP_INT_MAX;
+                        $value = (string)MathUtility::forceIntegerInRange((int)$value, (int)$min, (int)$max);
+                        break;
+                    case 'int+':
+                        $min = $constantDefinition['typeIntMin'] ?? 0;
+                        $max = $constantDefinition['typeIntMax'] ?? PHP_INT_MAX;
+                        $value = (string)MathUtility::forceIntegerInRange((int)$value, (int)$min, (int)$max);
+                        break;
+                    case 'color':
+                        $col = [];
+                        if ($value) {
+                            $value = preg_replace('/[^A-Fa-f0-9]*/', '', $value) ?? '';
+                            $useFulHex = strlen($value) > 3;
+                            $col[] = (int)hexdec($value[0]);
+                            $col[] = (int)hexdec($value[1]);
+                            $col[] = (int)hexdec($value[2]);
+                            if ($useFulHex) {
+                                $col[] = (int)hexdec($value[3]);
+                                $col[] = (int)hexdec($value[4]);
+                                $col[] = (int)hexdec($value[5]);
+                            }
+                            $value = substr('0' . dechex($col[0]), -1) . substr('0' . dechex($col[1]), -1) . substr('0' . dechex($col[2]), -1);
+                            if ($useFulHex) {
+                                $value .= substr('0' . dechex($col[3]), -1) . substr('0' . dechex($col[4]), -1) . substr('0' . dechex($col[5]), -1);
+                            }
+                            $value = '#' . strtoupper($value);
+                        }
+                        break;
+                    case 'comment':
+                        if ($value) {
+                            $value = '';
+                        } else {
+                            $value = '#';
+                        }
+                        break;
+                    case 'wrap':
+                        if (($data[$key]['left'] ?? false) || $data[$key]['right']) {
+                            $value = $data[$key]['left'] . '|' . $data[$key]['right'];
+                        } else {
+                            $value = '';
+                        }
+                        break;
+                    case 'offset':
+                        $value = rtrim(implode(',', $value), ',');
+                        if (trim($value, ',') === '') {
+                            $value = '';
+                        }
+                        break;
+                    case 'boolean':
+                        if ($value) {
+                            $value = ($constantDefinition['trueValue'] ?? false) ?: '1';
+                        }
+                        break;
+                }
+                if ((string)($constantDefinition['value'] ?? '') !== (string)$value) {
+                    // Put value in, if changed.
+                    $rawTemplateConstantsArray = $this->addOrUpdateValueInConstantsArray($rawTemplateConstantsArray, $constantPositions, $key, $value);
+                    $valuesHaveChanged = true;
+                }
+            }
+        }
+        if ($valuesHaveChanged) {
+            return $rawTemplateConstantsArray;
+        }
+        return null;
+    }
+
+    private function calculateConstantPositions(
+        array $rawTemplateConstantsArray,
+        array &$constantPositions = [],
+        string $prefix = '',
+        int $braceLevel = 0,
+        int &$lineCounter = 0
+    ): array {
+        while (isset($rawTemplateConstantsArray[$lineCounter])) {
+            $line = ltrim($rawTemplateConstantsArray[$lineCounter]);
+            $lineCounter++;
+            if (!$line || $line[0] === '[') {
+                // Ignore empty lines and conditions
+                continue;
+            }
+            if (strcspn($line, '}#/') !== 0) {
+                $operatorPosition = strcspn($line, ' {=<');
+                $key = substr($line, 0, $operatorPosition);
+                $line = ltrim(substr($line, $operatorPosition));
+                if ($line[0] === '=') {
+                    $constantPositions[$prefix . $key] = $lineCounter - 1;
+                } elseif ($line[0] === '{') {
+                    $braceLevel++;
+                    $this->calculateConstantPositions($rawTemplateConstantsArray, $constantPositions, $prefix . $key . '.', $braceLevel, $lineCounter);
+                }
+            } elseif ($line[0] === '}') {
+                $braceLevel--;
+                if ($braceLevel < 0) {
+                    $braceLevel = 0;
+                } else {
+                    // Leaving this brace level: Force return to caller recursion
+                    break;
+                }
+            }
+        }
+        return $constantPositions;
+    }
+
+    /**
+     * Update a constant value in current template constants if key exists already,
+     * or add key/value at the end if it does not exist yet.
+     */
+    private function addOrUpdateValueInConstantsArray(array $templateConstantsArray, array $constantPositions, string $constantKey, string $value): array
+    {
+        $theValue = ' ' . trim($value);
+        if (isset($constantPositions[$constantKey])) {
+            $lineNum = $constantPositions[$constantKey];
+            $parts = explode('=', $templateConstantsArray[$lineNum], 2);
+            if (count($parts) === 2) {
+                $parts[1] = $theValue;
+            }
+            $templateConstantsArray[$lineNum] = implode('=', $parts);
+        } else {
+            $templateConstantsArray[] = $constantKey . ' =' . $theValue;
+        }
+        return $templateConstantsArray;
+    }
+
+    /**
+     * Remove a key from constant array.
+     */
+    private function removeValueFromConstantsArray(array $templateConstantsArray, array $constantPositions, string $constantKey): array
+    {
+        if (isset($constantPositions[$constantKey])) {
+            $lineNum = $constantPositions[$constantKey];
+            unset($templateConstantsArray[$lineNum]);
+        }
+        return $templateConstantsArray;
     }
 }

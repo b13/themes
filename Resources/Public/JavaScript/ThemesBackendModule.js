@@ -1,8 +1,7 @@
-/**
- * 
- */
-define(['jquery'], function (jQuery) {
+import jQuery from 'jquery';
+import DocumentService from '@typo3/core/document-service.js';
 
+DocumentService.ready().then(() => {
 	var ThemesEditor = {};
 	var categoriesFilterSearchField = '';
 	var categoriesFilterSearchScope = '';
@@ -29,7 +28,7 @@ define(['jquery'], function (jQuery) {
 			ThemesEditor.bindNoticeForChangingValues();
 		});
 	};
-	
+
 	ThemesEditor.bindNoticeForChangingValues = function() {
 		/**
 		 * @todo: add translation
@@ -38,7 +37,7 @@ define(['jquery'], function (jQuery) {
 			alert('Enable this row in order to change this value!');
 			return false;
 		});
-		
+
 	};
 
 	ThemesEditor.bindEditToggleEvents = function() {
@@ -173,11 +172,7 @@ define(['jquery'], function (jQuery) {
 	ThemesEditor.saveCategoriesSettings = function() {
 		var url = jQuery('#categoriesFilterSettingsSaveUrl').val();
 		var data = {};
-		data.tx_themes_web_themesmod1 = {};
-		data.tx_themes_web_themesmod1.searchScope = jQuery('#categoriesFilterSearchScope').val();
-		data.tx_themes_web_themesmod1.showBasic = jQuery('#categoriesFilterShowBasic').prop('checked') ? '1' : '0';
-		data.tx_themes_web_themesmod1.showAdvanced = jQuery('#categoriesFilterShowAdvanced').prop('checked') ? '1' : '0';
-		data.tx_themes_web_themesmod1.showExpert = jQuery('#categoriesFilterShowExpert').prop('checked') ? '1' : '0';
+		data.searchScope = jQuery('#categoriesFilterSearchScope').val();
 		jQuery.ajax({
 			dataType: "json",
 			url: url,
@@ -191,11 +186,6 @@ define(['jquery'], function (jQuery) {
 		});
 	};
 
-	/**
-	 * initialize function
-	 * */
-	return function () {
-		ThemesEditor.initialize();
-		return ThemesEditor;
-	}();
+    ThemesEditor.initialize();
 });
+

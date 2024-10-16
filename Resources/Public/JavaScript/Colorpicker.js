@@ -1,10 +1,7 @@
-/**
- * Color picker
- * Author: Stefan Petre www.eyecon.ro
- *
- * Dual licensed under the MIT and GPL licenses
- */
-define(['jquery'], function ($) {
+import $ from 'jquery';
+import DocumentService from '@typo3/core/document-service.js';
+
+DocumentService.ready().then(() => {
 
 	var ColorPicker = function () {
 		var

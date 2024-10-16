@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /***************************************************************
  *
  * Copyright notice
@@ -29,27 +31,15 @@ $EM_CONF['themes'] = [
     'title' => 'THEMES - The theme engine',
     'description' => '',
     'category' => 'fe',
-    'shy' => 0,
     'version' => '10.0.0',
-    'dependencies' => '',
-    'conflicts' => '',
-    'priority' => '',
-    'loadOrder' => '',
-    'module' => '',
     'state' => 'stable',
-    'uploadfolder' => 0,
-    'createDirs' => '',
-    'modify_tables' => '',
     'clearcacheonload' => 0,
-    'lockType' => '',
     'author' => 'Themes-Team (Kay Strobach, Jo Hasenau, Thomas Deuling)',
     'author_email' => 'team@typo3-themes.org',
     'author_company' => 'private',
-    'CGLcompliance' => '',
-    'CGLcompliance_note' => '',
     'constraints' => [
         'depends' => [
-            'typo3' => '11.5.0-11.5.99',
+            'typo3' => '12.4.0-12.4.99',
         ],
         'conflicts' => [
             'belayout_tsprovider' => '0.0.0-1.99.99',
@@ -58,5 +48,4 @@ $EM_CONF['themes'] = [
         'suggests' => [
         ],
     ],
-    '_md5_values_when_last_written' => '',
 ];
