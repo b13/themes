@@ -36,8 +36,7 @@
 
 		<div class="col-xs-12">
 
-
-			<f:form action="update" enctype="multipart/form-data" id="saveableForm">
+			<f:form action="update" enctype="multipart/form-data" id="saveableForm" additionalParams="{additionalUrlParams}">
 
 				<f:form.hidden name="pid" value="{pid}" />
 				<f:for each="{categories}" as="category">

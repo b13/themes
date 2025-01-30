@@ -30,6 +30,9 @@ namespace KayStrobach\Themes\Controller;
  ***************************************************************/
 
 use KayStrobach\Themes\Domain\Repository\TemplateRepository;
+use KayStrobach\Themes\Events\AfterSystemplatesAreLoadedEvent;
+use KayStrobach\Themes\Events\BeforeActionIsRenderedEvent;
+use KayStrobach\Themes\Events\BeforeConstantsAreUpdatedEvent;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use TYPO3\CMS\Backend\Template\Components\ButtonBar;
@@ -112,6 +115,10 @@ class EditorController extends ActionController
 
             $rootLine = GeneralUtility::makeInstance(RootlineUtility::class, $pageUid)->get();
             $sysTemplateRows = $this->sysTemplateRepository->getSysTemplateRowsByRootlineWithUidOverride($rootLine, $request, $selectedTemplateUid);
+            $afterSysTemplateRowsAreLoadedEvent = new AfterSystemplatesAreLoadedEvent($sysTemplateRows, $this->request);
+            $this->eventDispatcher->dispatch($afterSysTemplateRowsAreLoadedEvent);
+            $sysTemplateRows = $afterSysTemplateRowsAreLoadedEvent->getSysTemplateRows();
+
             $site = $request->getAttribute('site');
             $constantIncludeTree = $this->treeBuilder->getTreeBySysTemplateRowsAndSite('constants', $sysTemplateRows, $this->losslessTokenizer, $site);
             $constantAstBuilderVisitor = GeneralUtility::makeInstance(IncludeTreeCommentAwareAstBuilderVisitor::class);
@@ -155,6 +162,9 @@ class EditorController extends ActionController
             $this->moduleTemplate->assign('categoriesFilterSettings', $categoriesFilterSettings);
         }
         $this->moduleTemplate->assign('pid', $this->id);
+        $beforeActionisRenderedEvent = new BeforeActionIsRenderedEvent($this->moduleTemplate, $this->request);
+        $this->eventDispatcher->dispatch($beforeActionisRenderedEvent);
+        $this->moduleTemplate->assign('additionalUrlParams', $beforeActionisRenderedEvent->getAdditionalUrlParams());
         return $this->moduleTemplate->renderResponse('Index');
     }
 
@@ -172,6 +182,9 @@ class EditorController extends ActionController
         $rootLine = GeneralUtility::makeInstance(RootlineUtility::class, $pageUid)->get();
         $site = $request->getAttribute('site');
         $sysTemplateRows = $this->sysTemplateRepository->getSysTemplateRowsByRootlineWithUidOverride($rootLine, $request, $selectedTemplateUid);
+        $afterSysTemplateRowsAreLoadedEvent = new AfterSystemplatesAreLoadedEvent($sysTemplateRows, $this->request);
+        $this->eventDispatcher->dispatch($afterSysTemplateRowsAreLoadedEvent);
+        $sysTemplateRows = $afterSysTemplateRowsAreLoadedEvent->getSysTemplateRows();
         $constantIncludeTree = $this->treeBuilder->getTreeBySysTemplateRowsAndSite('constants', $sysTemplateRows, $this->losslessTokenizer, $site);
         $constantAstBuilderVisitor = GeneralUtility::makeInstance(IncludeTreeCommentAwareAstBuilderVisitor::class);
         $this->treeTraverser->traverse($constantIncludeTree, [$constantAstBuilderVisitor]);
@@ -180,20 +193,27 @@ class EditorController extends ActionController
         $this->astTraverser->traverse($constantAst, [$astConstantCommentVisitor]);
 
         $constants = $astConstantCommentVisitor->getConstants();
-        $updatedTemplateConstantsArray = $this->updateTemplateConstants($request, $constants, $templateRow['constants'] ?? '');
+        $sysTemplateConstants = $afterSysTemplateRowsAreLoadedEvent->getSysTemplateConstants();
+        $updatedTemplateConstantsArray = $this->updateTemplateConstants($request, $constants, $sysTemplateConstants);
+
         if ($updatedTemplateConstantsArray) {
-            $templateUid = $templateRow['uid'];
-            $recordData = [];
-            $recordData['sys_template'][$templateUid]['constants'] = implode(LF, $updatedTemplateConstantsArray);
-            $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
+            $beforeConstantsAreUpdatedEvent = new BeforeConstantsAreUpdatedEvent($updatedTemplateConstantsArray, $this->request);
+            $this->eventDispatcher->dispatch($beforeConstantsAreUpdatedEvent);
+            if ($beforeConstantsAreUpdatedEvent->shouldSysTemplateBeUpdated()) {
+                $templateUid = $templateRow['uid'];
+                $recordData = [];
+                $recordData['sys_template'][$templateUid]['constants'] = implode(LF, $updatedTemplateConstantsArray);
+                $dataHandler = GeneralUtility::makeInstance(DataHandler::class);
 
-            $user = clone $GLOBALS['BE_USER'];
-            $user->user['admin'] = 1;
-            $dataHandler->start($recordData, [], $user);
-            $dataHandler->process_datamap();
+                $user = clone $GLOBALS['BE_USER'];
+                $user->user['admin'] = 1;
+                $dataHandler->start($recordData, [], $user);
+                $dataHandler->process_datamap();
+            }
         }
-
-        $uri = $this->uriBuilder->reset()->uriFor('index');
+        $beforeActionisRenderedEvent = new BeforeActionIsRenderedEvent($this->moduleTemplate, $this->request);
+        $this->eventDispatcher->dispatch($beforeActionisRenderedEvent);
+        $uri = $this->uriBuilder->reset()->setArguments($beforeActionisRenderedEvent->getAdditionalUrlParams())->uriFor('index');
         return new RedirectResponse($uri);
     }
 
@@ -216,7 +236,10 @@ class EditorController extends ActionController
             $dataHandler->clear_cacheCmd('pages');
             unset($user);
         }
-        $uri = $this->uriBuilder->reset()->uriFor('index');
+        $beforeActionisRenderedEvent = new BeforeActionIsRenderedEvent($this->moduleTemplate, $this->request);
+        $this->eventDispatcher->dispatch($beforeActionisRenderedEvent);
+        $this->eventDispatcher->dispatch($beforeActionisRenderedEvent);
+        $uri = $this->uriBuilder->reset()->setArguments($beforeActionisRenderedEvent->getAdditionalUrlParams())->uriFor('index');
         return new RedirectResponse($uri);
     }
 

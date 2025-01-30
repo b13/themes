@@ -8,14 +8,14 @@
 
 	<f:if condition="{template}">
 		<f:then>
-			<f:render partial="Themes/ConstantEditor" arguments="{categories:categories, categoriesFilterSettings:categoriesFilterSettings, pid:pid}"/>
+			<f:render partial="Themes/ConstantEditor" arguments="{categories:categories, categoriesFilterSettings:categoriesFilterSettings, pid:pid, additionalUrlParams: additionalUrlParams}"/>
 		</f:then>
 		<f:else>
 			<f:be.infobox title="{f:translate(key:'LLL:EXT:themes/Resources/Private/Language/locallang.xlf:noThemeSelectable')}" state="2">
 				One reason could be, that there is no TypoScript Root-Template defined on this page.<br />
 				Create a TypoScript Root-Template or select antoher page for selecting a Theme.
 			</f:be.infobox>
-			<f:form action="create">
+			<f:form action="create" additionalParams="{additionalUrlParams}">
 				<f:form.button class="btn btn-default" type="submit">
 					<f:translate key="LLL:EXT:tstemplate/Resources/Private/Language/locallang.xlf:noRecordFound.createAdditionalTypoScriptRecord.link.title" />
 				</f:form.button>
