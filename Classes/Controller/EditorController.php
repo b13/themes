@@ -28,7 +28,6 @@ namespace KayStrobach\Themes\Controller;
  *
  * This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
-
 use KayStrobach\Themes\Domain\Repository\TemplateRepository;
 use KayStrobach\Themes\Events\AfterSystemplatesAreLoadedEvent;
 use KayStrobach\Themes\Events\BeforeActionIsRenderedEvent;
@@ -43,8 +42,8 @@ use TYPO3\CMS\Core\Configuration\ExtensionConfiguration;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Http\JsonResponse;
 use TYPO3\CMS\Core\Http\RedirectResponse;
-use TYPO3\CMS\Core\Imaging\Icon;
 use TYPO3\CMS\Core\Imaging\IconFactory;
+use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\TypoScript\AST\AstBuilderInterface;
 use TYPO3\CMS\Core\TypoScript\AST\Node\RootNode;
@@ -165,7 +164,7 @@ class EditorController extends ActionController
         $beforeActionisRenderedEvent = new BeforeActionIsRenderedEvent($this->moduleTemplate, $this->request);
         $this->eventDispatcher->dispatch($beforeActionisRenderedEvent);
         $this->moduleTemplate->assign('additionalUrlParams', $beforeActionisRenderedEvent->getAdditionalUrlParams());
-        return $this->moduleTemplate->renderResponse('Index');
+        return $this->moduleTemplate->renderResponse('Editor/Index');
     }
 
     public function updateAction(array $data, array $check, int $pid): ResponseInterface
@@ -269,7 +268,7 @@ class EditorController extends ActionController
                 ->setName('save')
                 ->setValue('1')
                 ->setForm('saveableForm')
-                ->setIcon($this->iconFactory->getIcon('actions-document-save', Icon::SIZE_SMALL))
+                ->setIcon($this->iconFactory->getIcon('actions-document-save', IconSize::SMALL))
                 ->setTitle('Save');
         }
         foreach ($buttons as $button) {
